@@ -33,6 +33,26 @@ impl Component for RicochetTag {
     type Storage = NullStorage<Self>;
 }
 
+/// Entities tagged with this Component (and of course a Transform and Movement) will actively
+/// avoid obstacles by steering away from them.
+/// The world bounds currently (v0.2.0) are the only obstacles.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PrefabData)]
+#[prefab(Component)]
+pub struct AvoidObstaclesTag;
+
+impl Component for AvoidObstaclesTag {
+    type Storage = NullStorage<Self>;
+}
+
+/// Entities tagged with this Component will despawn as soon as their position is outside the world bounds.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PrefabData)]
+#[prefab(Component)]
+pub struct DespawnWhenOutOfBoundsTag;
+
+impl Component for DespawnWhenOutOfBoundsTag {
+    type Storage = NullStorage<Self>;
+}
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PrefabData)]
 #[prefab(Component)]
 pub struct IntelligenceTag;
@@ -96,4 +116,6 @@ pub struct CreaturePrefabData {
     intelligence_tag: Option<IntelligenceTag>,
     perception: Option<Perception>,
     ricochet_tag: Option<RicochetTag>,
+    avoid_obstacles_tag: Option<AvoidObstaclesTag>,
+    despawn_when_out_of_bounds_tag: Option<DespawnWhenOutOfBoundsTag>,
 }
