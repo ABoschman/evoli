@@ -177,6 +177,15 @@ impl MainGameState {
                     &[],
                 )
                 .with(
+                    topplegrass::TopplingSystem::default(),
+                    "toppling_system",
+                    &[],
+                ).with(
+                    topplegrass::GravitySystem::default(),
+                    "gravity_system",
+                    &[],
+                )
+                .with(
                     out_of_bounds::OutOfBoundsDespawnSystem::default(),
                     "out_of_bounds_despawn_system",
                     &[],

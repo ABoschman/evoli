@@ -8,6 +8,7 @@ Prefab (
                 ),
                 gltf: File("assets/Topplegrass.gltf", ()),
                 despawn_when_out_of_bounds_tag: (),
+                topplegrass_tag: (),
             ),
         ),
     ],
