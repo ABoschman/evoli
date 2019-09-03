@@ -13,7 +13,7 @@ use rand::{thread_rng, Rng};
 use std::f32;
 
 use crate::{
-    components::creatures::FreeFallTag, components::creatures::Movement,
+    components::creatures::FallingTag, components::creatures::Movement,
     components::creatures::TopplegrassTag, resources::wind::Wind,
     systems::spawner::CreatureSpawnEvent,
 };
@@ -23,13 +23,15 @@ const SPAWN_INTERVAL: f32 = 1.0;
 /// The standard scaling to apply to the entity.
 const TOPPLEGRASS_BASE_SCALE: f32 = 0.002;
 /// The maximum movement speed of Topplegrass.
-const MAX_MOVEMENT_SPEED: f32 = 1.75;
+const MAX_MOVEMENT_SPEED: f32 = 10.0;
 /// At which height the topplegrass entity should spawn.
 const HEIGHT: f32 = 0.5;
 /// If we knew the radius of the toppleweed, we could calculate the perfect angular velocity,
 /// but instead we'll use this magic value we got through trial and error.
 /// It should be close enough to the actual value that the entity doesn't appear to slip.
 const ANGULAR_V_MAGIC: f32 = 2.0;
+/// Acceleration due to gravity.
+const GRAVITY: f32 = 4.0;
 
 /// Periodically schedules a Topplegrass entity to be spawned in through a CreatureSpawnEvent.
 #[derive(Default)]
@@ -137,43 +139,46 @@ impl<'s> System<'s> for TopplingSystem {
         WriteStorage<'s, Movement>,
         WriteStorage<'s, Transform>,
         ReadStorage<'s, TopplegrassTag>,
-        WriteStorage<'s, FreeFallTag>,
+        WriteStorage<'s, FallingTag>,
+        Read<'s, Wind>,
         Read<'s, Time>,
     );
 
     fn run(
         &mut self,
-        (entities, mut movements, mut transforms, topples, mut freefalls, time): Self::SystemData,
+        (entities, mut movements, mut transforms, topple_tags, mut falling_tags, wind, time): Self::SystemData,
     ) {
         let mut rng = thread_rng();
-        for (movement, transform, _) in (&movements, &mut transforms, &topples).join() {
+        for (movement, transform, _) in (&mut movements, &mut transforms, &topple_tags).join() {
             transform.append_rotation_x_axis(
                 -ANGULAR_V_MAGIC * movement.velocity.y * time.delta_seconds(),
             );
             transform.append_rotation_y_axis(
                 ANGULAR_V_MAGIC * movement.velocity.x * time.delta_seconds(),
             );
+            movement.velocity.x = wind.wind.x;
+            movement.velocity.y = wind.wind.y;
         }
-        let free_falling = (&entities, &mut movements, &topples, !&freefalls)
+        let airborne = (&entities, &mut movements, &topple_tags, !&falling_tags)
             .join()
             .filter_map(|(entity, movement, _, _)| {
-                if rng.gen::<f32>() < 0.05 {
-                    movement.velocity.z = movement.velocity.magnitude() * rng.gen_range(0.4, 0.7);
+                if rng.gen::<f32>() < 0.1 {
+                    movement.velocity.z = rng.gen_range(0.4, 0.7);
                     Some(entity)
                 } else {
                     None
                 }
             })
             .collect::<Vec<Entity>>();
-        for entity in free_falling {
-            freefalls
-                .insert(entity, FreeFallTag {})
+        for entity in airborne {
+            falling_tags
+                .insert(entity, FallingTag {})
                 .expect("Unable to add obstacle to entity");
         }
     }
 }
 
-/// Applies the force of gravity on all entities with the FreeFallTag.
+/// Applies the force of gravity on all entities with the FallingTag.
 /// Will remove the tag if an entity has reached the ground again.
 #[derive(Default)]
 pub struct GravitySystem;
@@ -183,15 +188,15 @@ impl<'s> System<'s> for GravitySystem {
         Entities<'s>,
         WriteStorage<'s, Movement>,
         WriteStorage<'s, Transform>,
-        WriteStorage<'s, FreeFallTag>,
+        WriteStorage<'s, FallingTag>,
         Read<'s, Time>,
     );
 
     fn run(
         &mut self,
-        (entities, mut movements, mut transforms, mut freefalls, time): Self::SystemData,
+        (entities, mut movements, mut transforms, mut falling_tags, time): Self::SystemData,
     ) {
-        let no_longer_falling = (&entities, &mut movements, &mut transforms, &freefalls)
+        let no_longer_falling = (&entities, &mut movements, &mut transforms, &falling_tags)
             .join()
             .filter_map(|(entity, movement, transform, _)| {
                 if transform.translation().z <= HEIGHT && movement.velocity.z.is_sign_negative() {
@@ -199,13 +204,14 @@ impl<'s> System<'s> for GravitySystem {
                     movement.velocity.z = 0.0;
                     Some(entity)
                 } else {
-                    movement.velocity.z = movement.velocity.z - 4.0 * time.delta_seconds();
+                    //TODO: Add terminal velocity cap on falling speed.
+                    movement.velocity.z = movement.velocity.z - GRAVITY * time.delta_seconds();
                     None
                 }
             })
             .collect::<Vec<Entity>>();
         for entity in no_longer_falling {
-            freefalls.remove(entity);
+            falling_tags.remove(entity);
         }
     }
 }

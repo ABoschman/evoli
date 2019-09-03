@@ -1,65 +1,73 @@
 use amethyst::{
-    core::math::Vector2,
+    core::{math::Vector2, timing::Time},
     ecs::*,
-    input::{InputEvent, StringBindings},
-    shrev::{EventChannel, ReaderId},
+    input::{InputHandler, StringBindings},
 };
 
 use crate::resources::wind::Wind;
 use std::f32;
 
-/// DebugWindControlSystem allows players to change the wind direction at runtime.
-/// Wind direction will rotate counter-clockwise by 1/8 PI RAD every time the
-/// ChangeWindDirection input action is invoked.
-/// The magnitude of the wind vector will remain unchanged.
-#[derive(Default)]
-pub struct DebugWindControlSystem {
-    input_reader_id: Option<ReaderId<InputEvent<StringBindings>>>,
-}
+/// Wind speed cannot decrease below this number.
+const MIN_WIND_SPEED: f32 = 0.0;
+/// Wind speed cannot increase above this number.
+const MAX_WIND_SPEED: f32 = 5.0;
+/// Speed with which to rotate wind speed in radians per second.
+const WIND_TURN_SPEED: f32 = f32::consts::FRAC_PI_4;
+/// Speed with which to increase or decrease wind speed in meters?? per second per second.
+const WIND_ACCELERATION: f32 = 2.0;
 
-impl DebugWindControlSystem {
-    fn handle_action(&self, action: &str, wind: &mut Wind) {
-        match action {
-            "ChangeWindDirection" => {
-                let old_wind_angle = wind.wind.y.atan2(wind.wind.x);
-                let new_wind_angle = old_wind_angle + f32::consts::FRAC_PI_8;
-                let magnitude = wind.wind.magnitude();
-                wind.wind = Vector2::new(
-                    magnitude * new_wind_angle.cos(),
-                    magnitude * new_wind_angle.sin(),
-                );
-                println!(
-                    "action: {:?} Changed wind angle from {:?} to {:?}",
-                    action, old_wind_angle, new_wind_angle
-                );
-            }
-            _ => (),
-        }
-    }
-}
+/// DebugWindControlSystem allows players to change the wind speed and direction at runtime.
+/// Use the ChangeWindDirection input axis to change the wind direction at WIND_TURN_SPEED radians per second.
+/// Use the ChangeWindSpeed input axis to change the wind speed between MIN_WIND_SPEED and MAX_WIND_SPEED.
+#[derive(Default)]
+pub struct DebugWindControlSystem;
 
 impl<'s> System<'s> for DebugWindControlSystem {
     type SystemData = (
-        Read<'s, EventChannel<InputEvent<StringBindings>>>,
+        Read<'s, InputHandler<StringBindings>>,
         Write<'s, Wind>,
+        Read<'s, Time>,
     );
 
-    fn setup(&mut self, res: &mut Resources) {
-        Self::SystemData::setup(res);
-        self.input_reader_id = Some(
-            res.fetch_mut::<EventChannel<InputEvent<StringBindings>>>()
-                .register_reader(),
+    fn run(&mut self, (input, mut wind, time): Self::SystemData) {
+        let change_direction = input
+            .axis_value("ChangeWindDirection")
+            .filter(|signum| signum.abs() > std::f32::EPSILON);
+        let change_speed = input
+            .axis_value("ChangeWindSpeed")
+            .filter(|signum| signum.abs() > std::f32::EPSILON);
+        if !change_direction.is_some() && !change_speed.is_some() {
+            return;
+        }
+        let new_angle = calc_wind_angle(change_direction, &wind, &time);
+        let new_speed = calc_wind_speed(change_speed, &wind, &time);
+        wind.wind = Vector2::new(
+            new_speed * new_angle.cos(),
+            new_speed * new_angle.sin(),
+        );
+        println!(
+            "Changed wind vector to: ({:?},{:?}) angle={:?} speed={:?}",
+            wind.wind.x, wind.wind.y, new_angle, new_speed
         );
     }
+}
 
-    fn run(&mut self, (input_events, mut wind): Self::SystemData) {
-        input_events
-            .read(self.input_reader_id.as_mut().unwrap())
-            .for_each(|event| {
-                // change from if-let to match when more InputEvent variants need to be handled
-                if let InputEvent::ActionPressed(action_name) = event {
-                    self.handle_action(&action_name, &mut wind);
-                }
-            });
+fn calc_wind_angle(input_signum: Option<f32>, wind: &Wind, time: &Time) -> f32 {
+    let old_wind_angle = wind.wind.y.atan2(wind.wind.x);
+    if let Some(signum) = input_signum {
+        old_wind_angle + signum * WIND_TURN_SPEED * time.delta_seconds()
+    } else {
+        old_wind_angle
+    }
+}
+
+fn calc_wind_speed(input_signum: Option<f32>, wind: &Wind, time: &Time) -> f32 {
+    let magnitude = wind.wind.magnitude();
+    if let Some(signum) = input_signum {
+        (magnitude + signum * WIND_ACCELERATION * time.delta_seconds())
+            .max(MIN_WIND_SPEED)
+            .min(MAX_WIND_SPEED)
+    } else {
+        magnitude
     }
 }

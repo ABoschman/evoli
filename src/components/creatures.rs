@@ -54,12 +54,12 @@ impl Component for TopplegrassTag {
     type Storage = NullStorage<Self>;
 }
 
-/// Gives this tag to any entity that is in freefall and should be affected by gravity.
+/// Gives this tag to any entity that is falling and should be affected by gravity.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PrefabData)]
 #[prefab(Component)]
-pub struct FreeFallTag;
+pub struct FallingTag;
 
-impl Component for FreeFallTag {
+impl Component for FallingTag {
     type Storage = NullStorage<Self>;
 }
 
@@ -138,5 +138,5 @@ pub struct CreaturePrefabData {
     avoid_obstacles_tag: Option<AvoidObstaclesTag>,
     despawn_when_out_of_bounds_tag: Option<DespawnWhenOutOfBoundsTag>,
     topplegrass_tag: Option<TopplegrassTag>,
-    free_fall_tag: Option<FreeFallTag>,
+    falling_tag: Option<FallingTag>,
 }
