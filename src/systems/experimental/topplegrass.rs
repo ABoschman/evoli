@@ -32,6 +32,13 @@ const HEIGHT: f32 = 0.5;
 const ANGULAR_V_MAGIC: f32 = 2.0;
 /// Acceleration due to gravity.
 const GRAVITY: f32 = 4.0;
+/// The minimum velocity that a topplegrass entity must have in order to start jumping up into the air.
+/// This is to prevent topplegrass from jumping in a weird way when there is (almost) no wind.
+const JUMP_THRESHOLD: f32 = 0.5;
+/// The chance per elapsed second since last frame that any given non-falling
+/// topplegrass will jump up into the air slightly.
+/// Not a great way of doing it, but probably good enough until we get a physics system?
+const JUMP_PROBABILITY: f32 = 2.0;
 
 /// Periodically schedules a Topplegrass entity to be spawned in through a CreatureSpawnEvent.
 #[derive(Default)]
@@ -154,11 +161,12 @@ impl<'s> System<'s> for TopplingSystem {
             movement.velocity.y = wind.wind.y;
         }
         // Select some of the topplegrass that are on ground to jump up into the air slightly.
-        // TODO: Make the chance that topplegrass hops up into the air framerate-independant.
         let airborne = (&entities, &mut movements, &topple_tags, !&falling_tags)
             .join()
             .filter_map(|(entity, movement, _, _)| {
-                if rng.gen::<f32>() < 0.1 {
+                if movement.velocity.magnitude() > JUMP_THRESHOLD
+                    && rng.gen::<f32>() < JUMP_PROBABILITY * time.delta_seconds()
+                {
                     movement.velocity.z = rng.gen_range(0.4, 0.7);
                     Some(entity)
                 } else {
@@ -170,7 +178,7 @@ impl<'s> System<'s> for TopplingSystem {
         // know to start affecting it.
         for entity in airborne {
             falling_tags
-                .insert(entity, FallingTag {})
+                .insert(entity, FallingTag)
                 .expect("Unable to add falling tag to entity");
         }
     }
