@@ -2,7 +2,7 @@ use crate::{resources::prefabs::UiPrefabRegistry, utils::hierarchy_util};
 use amethyst::{
     core::transform::components::Parent,
     ecs::{join::Join, Entity},
-    input::{Button, InputHandler, StringBindings},
+    input::{Axis, Button, InputHandler, StringBindings},
     prelude::*,
     ui::{UiEvent, UiEventType, UiFinder, UiText, UiTransform},
 };
@@ -36,6 +36,17 @@ impl ControlsState {
                         ),
                     )
                 })
+                .chain(input_handler.bindings.axes().map(|axis| {
+                    (
+                        axis.clone(),
+                        format!(
+                            "{:?}",
+                            input_handler
+                                .bindings
+                                .axis(axis)
+                        ),
+                    )
+                }))
                 .collect::<Vec<(String, String)>>();
             bindings.sort();
             bindings
