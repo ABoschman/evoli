@@ -181,7 +181,7 @@ impl MainGameState {
                     "toppling_system",
                     &[],
                 ).with(
-                    topplegrass::GravitySystem::default(),
+                    gravity::GravitySystem::default(),
                     "gravity_system",
                     &[],
                 )

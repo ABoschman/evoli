@@ -30,8 +30,6 @@ const HEIGHT: f32 = 0.5;
 /// but instead we'll use this magic value we got through trial and error.
 /// It should be close enough to the actual value that the entity doesn't appear to slip.
 const ANGULAR_V_MAGIC: f32 = 2.0;
-/// Acceleration due to gravity.
-const GRAVITY: f32 = 4.0;
 /// The minimum velocity that a topplegrass entity must have in order to start jumping up into the air.
 /// This is to prevent topplegrass from jumping in a weird way when there is (almost) no wind.
 const JUMP_THRESHOLD: f32 = 0.5;
@@ -181,37 +179,16 @@ impl<'s> System<'s> for TopplingSystem {
                 .insert(entity, FallingTag)
                 .expect("Unable to add falling tag to entity");
         }
-    }
-}
-
-/// Applies the force of gravity on all entities with the FallingTag.
-/// Will remove the tag if an entity has reached the ground again.
-#[derive(Default)]
-pub struct GravitySystem;
-
-impl<'s> System<'s> for GravitySystem {
-    type SystemData = (
-        Entities<'s>,
-        WriteStorage<'s, Movement>,
-        WriteStorage<'s, Transform>,
-        WriteStorage<'s, FallingTag>,
-        Read<'s, Time>,
-    );
-
-    fn run(
-        &mut self,
-        (entities, mut movements, mut transforms, mut falling_tags, time): Self::SystemData,
-    ) {
-        let no_longer_falling = (&entities, &mut movements, &mut transforms, &falling_tags)
+        // Check which entities are no longer falling (because they reached the ground); remove
+        // their falling tag, set their vertical speed to zero (we don't bounce) and correct their position.
+        let no_longer_falling = (&entities, &mut transforms, &mut movements, &falling_tags, &topple_tags)
             .join()
-            .filter_map(|(entity, movement, transform, _)| {
+            .filter_map(|(entity, transform, movement, _, _)| {
                 if transform.translation().z <= HEIGHT && movement.velocity.z.is_sign_negative() {
                     transform.translation_mut().z = HEIGHT;
                     movement.velocity.z = 0.0;
                     Some(entity)
                 } else {
-                    //TODO: Add terminal velocity cap on falling speed.
-                    movement.velocity.z = movement.velocity.z - GRAVITY * time.delta_seconds();
                     None
                 }
             })
