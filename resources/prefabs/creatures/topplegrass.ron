@@ -7,6 +7,10 @@ Prefab (
                     name: "Topplegrass"
                 ),
                 gltf: File("assets/Topplegrass.gltf", ()),
+                movement: (
+                    velocity: [0.0, 0.0, 0.0],
+                    max_movement_speed: 10.0,
+                ),
                 despawn_when_out_of_bounds_tag: (),
                 topplegrass_tag: (),
             ),

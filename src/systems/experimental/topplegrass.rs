@@ -19,11 +19,11 @@ use crate::{
 };
 
 /// A new topplegrass entity is spawned periodically, SPAWN_INTERVAL is the period in seconds.
+/// Spawn interval is currently set quite fast, for testing purposes. In the final game,
+/// a spawn internal of at least a few minutes might be better.
 const SPAWN_INTERVAL: f32 = 1.0;
 /// The standard scaling to apply to the entity.
 const TOPPLEGRASS_BASE_SCALE: f32 = 0.002;
-/// The maximum movement speed of Topplegrass.
-const MAX_MOVEMENT_SPEED: f32 = 10.0;
 /// At which height the topplegrass entity should spawn.
 const HEIGHT: f32 = 0.5;
 /// If we knew the radius of the toppleweed, we could calculate the perfect angular velocity,
@@ -61,15 +61,7 @@ impl<'s> System<'s> for TopplegrassSpawnSystem {
                 TOPPLEGRASS_BASE_SCALE,
             ));
             transform.append_translation(Self::gen_spawn_location(&wind, &world_bounds));
-            let movement = Movement {
-                velocity: Vector3::new(wind.wind.x, wind.wind.y, 0.0),
-                max_movement_speed: MAX_MOVEMENT_SPEED,
-            };
-            let entity = lazy_update
-                .create_entity(&entities)
-                .with(transform)
-                .with(movement)
-                .build();
+            let entity = lazy_update.create_entity(&entities).with(transform).build();
             spawn_events.single_write(CreatureSpawnEvent {
                 creature_type: "Topplegrass".to_string(),
                 entity,
@@ -149,16 +141,20 @@ impl<'s> System<'s> for TopplingSystem {
         (entities, mut movements, mut transforms, topple_tags, mut falling_tags, wind, time): Self::SystemData,
     ) {
         let mut rng = thread_rng();
+        // Set topplegrass velocity to equal wind velocity.
+        // Rotate topplegrass.
         for (movement, transform, _) in (&mut movements, &mut transforms, &topple_tags).join() {
-            transform.append_rotation_x_axis(
+            transform.prepend_rotation_x_axis(
                 -ANGULAR_V_MAGIC * movement.velocity.y * time.delta_seconds(),
             );
-            transform.append_rotation_y_axis(
+            transform.prepend_rotation_y_axis(
                 ANGULAR_V_MAGIC * movement.velocity.x * time.delta_seconds(),
             );
             movement.velocity.x = wind.wind.x;
             movement.velocity.y = wind.wind.y;
         }
+        // Select some of the topplegrass that are on ground to jump up into the air slightly.
+        // TODO: Make the chance that topplegrass hops up into the air framerate-independant.
         let airborne = (&entities, &mut movements, &topple_tags, !&falling_tags)
             .join()
             .filter_map(|(entity, movement, _, _)| {
@@ -170,10 +166,12 @@ impl<'s> System<'s> for TopplingSystem {
                 }
             })
             .collect::<Vec<Entity>>();
+        // Attach the falling tag to the selected topplegrass entities, which lets the GravitySystem
+        // know to start affecting it.
         for entity in airborne {
             falling_tags
                 .insert(entity, FallingTag {})
-                .expect("Unable to add obstacle to entity");
+                .expect("Unable to add falling tag to entity");
         }
     }
 }
