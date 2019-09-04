@@ -2,7 +2,7 @@ use crate::{resources::prefabs::UiPrefabRegistry, utils::hierarchy_util};
 use amethyst::{
     core::transform::components::Parent,
     ecs::{join::Join, Entity},
-    input::{Axis, Button, InputHandler, StringBindings},
+    input::{Button, InputHandler, StringBindings},
     prelude::*,
     ui::{UiEvent, UiEventType, UiFinder, UiText, UiTransform},
 };

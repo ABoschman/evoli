@@ -21,7 +21,7 @@ use crate::{
 /// A new topplegrass entity is spawned periodically, SPAWN_INTERVAL is the period in seconds.
 /// Spawn interval is currently set quite fast, for testing purposes. In the final game,
 /// a spawn internal of at least a few minutes might be better.
-const SPAWN_INTERVAL: f32 = 1.0;
+const SPAWN_INTERVAL: f32 = 10.0;
 /// The standard scaling to apply to the entity.
 const TOPPLEGRASS_BASE_SCALE: f32 = 0.002;
 /// At which height the topplegrass entity should spawn.
@@ -38,7 +38,7 @@ const JUMP_THRESHOLD: f32 = 0.5;
 /// The chance per elapsed second since last frame that any given non-falling
 /// topplegrass will jump up into the air slightly.
 /// Not a great way of doing it, but probably good enough until we get a physics system?
-const JUMP_PROBABILITY: f32 = 2.0;
+const JUMP_PROBABILITY: f32 = 4.0;
 
 /// Periodically schedules a Topplegrass entity to be spawned in through a CreatureSpawnEvent.
 #[derive(Default)]
